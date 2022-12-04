@@ -27,8 +27,11 @@ private:
     // If an edge were collapsed, we'd collapse it to these points:
     Eigen::MatrixXd V, C, N,T,P;
     igl::min_heap< std::tuple<double,int,int> > Q;
+    Eigen::MatrixXd OV;
+    Eigen::MatrixXi OF;
     std::vector<std::vector<std::shared_ptr<cg3d::Mesh>>> PreviousMeshes;
     int meshIndex=0;
+    int num_collapsed;
 
 
 };

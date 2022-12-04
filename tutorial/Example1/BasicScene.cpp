@@ -22,17 +22,32 @@
 
 
 using namespace cg3d;
-std::shared_ptr<Movable> root;
-std::shared_ptr<cg3d::Model> cyl, sphere1 ,cube;
-Eigen::VectorXi EMAP;
-Eigen::MatrixXi F,E,EF,EI;
-Eigen::VectorXi EQ;
-// If an edge were collapsed, we'd collapse it to these points:
-Eigen::MatrixXd V, C, N,T;
-Eigen::MatrixXd OV;
-Eigen::MatrixXi OF;
-igl::min_heap< std::tuple<double,int,int> > Q;
-int num_collapsed;
+
+//void BasicScene::create_p(){
+//    igl::per_vertex_normals(V, F, N);
+//    P.resize(V.rows());
+//    for (int i = 0; i < V.rows(); i++) {
+//        Eigen::MatrixXd n=N.row(i);
+//        Eigen::MatrixXd v=V.row(i);
+//        Eigen::MatrixXd d= (-(n.transpose() * v));
+//        Eigen::MatrixXd q=( (v.transpose()*(n*n.transpose())*v) + (2*(d*n).transpose()*v) + (d*d));
+//        P[i]=q;
+//    }
+//}
+//
+//void BasicScene::create_q_tag(){
+//    Q_tag.resize(E.rows());
+//    for(int i=0;i<E.rows();i++){
+//        Eigen::MatrixXi e=E.row(i);
+//        Eigen::MatrixXd q_tag=P[e.coeff(0,0)]+P[e.coeff(0,1)];
+//        Q_tag[i]=q_tag;
+//        q_tag(q_tag.rows()-1,0)=0;
+//        q_tag(q_tag.rows()-1,1)=0;
+//        q_tag(q_tag.rows()-1,2)=0;
+//        q_tag(q_tag.rows()-1,3)=1;
+//    }
+//
+//}
 
 void BasicScene::simplify() {
     //reset();
@@ -53,13 +68,6 @@ void BasicScene::simplify() {
             T = Eigen::MatrixXd::Zero(V.rows(), 2);
             std::vector<cg3d::MeshData> newMeshData;
             newMeshData.push_back({V, F, N, T});
-
-//            std::shared_ptr<cg3d::Mesh> newMesh = std::make_shared<cg3d::Mesh>("new mesh", newMeshData);
-
-//                        auto mesh=cyl->GetMeshList();
-//                        mesh[0]->data.push_back({V,F,N,T});
-//            sphere1->GetMeshList().insert(sphere1->GetMeshList().begin(), newMesh);
-//            sphere1->meshIndex = 1;
             std::vector<std::shared_ptr<cg3d::Mesh>> newMeshList;
             for(int i=0; i<sphere1->GetMeshList().size(); i++) {
                 std::shared_ptr<cg3d::Mesh> newMesh = std::make_shared<cg3d::Mesh>("new mesh", newMeshData);
@@ -199,14 +207,7 @@ void BasicScene::Init(float fov, int width, int height, float near, float far)
 
     void BasicScene::KeyCallback(cg3d::Viewport *_viewport, int x, int y, int key, int scancode, int action, int mods) {
         if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-//            switch (key) // NOLINT(hicpp-multiway-paths-covered)
-//            {
-//                case GLFW_KEY_SPACE:
-//                    decrease();
-//                case GLFW_KEY_UP:
-//                    increase();
-//
-//            }
+
             if (key == GLFW_KEY_SPACE) {
                 simplify();
             }
