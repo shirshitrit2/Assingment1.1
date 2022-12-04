@@ -4,6 +4,7 @@
 #include <min_heap.h>
 
 #include <utility>
+#include <decimate_callback_types.h>
 
 class BasicScene : public cg3d::Scene
 {
@@ -16,7 +17,13 @@ public:
     void decrease() ;
     void increase();
     void simplify();
-    //void cheapest_edge();
+    void create_p();
+    void create_q_tag();
+    void create_v_tag();
+    void costs_positions_calculator();
+    bool our_collapse_edge();
+
+
 
 private:
     std::shared_ptr<Movable> root;
@@ -25,13 +32,17 @@ private:
     Eigen::MatrixXi F,E,EF,EI;
     Eigen::VectorXi EQ;
     // If an edge were collapsed, we'd collapse it to these points:
-    Eigen::MatrixXd V, C, N,T,P;
+    Eigen::MatrixXd V, C, N,T;
     igl::min_heap< std::tuple<double,int,int> > Q;
     Eigen::MatrixXd OV;
     Eigen::MatrixXi OF;
     std::vector<std::vector<std::shared_ptr<cg3d::Mesh>>> PreviousMeshes;
     int meshIndex=0;
     int num_collapsed;
+    std::vector<Eigen::MatrixXd > P, Q_tag;
+    std::map<int, Eigen::MatrixXd> V_tag;
+    igl::decimate_cost_and_placement_callback our_cost_and_placement;
+
 
 
 };

@@ -23,40 +23,126 @@
 
 using namespace cg3d;
 
-//void BasicScene::create_p(){
-//    igl::per_vertex_normals(V, F, N);
-//    P.resize(V.rows());
-//    for (int i = 0; i < V.rows(); i++) {
+
+
+
+
+void BasicScene::create_p(){
+    igl::per_vertex_normals(V, F, N);
+    P.resize(V.rows());
+    for (int i = 0; i < V.rows(); i++) {
 //        Eigen::MatrixXd n=N.row(i);
 //        Eigen::MatrixXd v=V.row(i);
 //        Eigen::MatrixXd d= (-(n.transpose() * v));
-//        Eigen::MatrixXd q=( (v.transpose()*(n*n.transpose())*v) + (2*(d*n).transpose()*v) + (d*d));
-//        P[i]=q;
-//    }
-//}
-//
-//void BasicScene::create_q_tag(){
-//    Q_tag.resize(E.rows());
-//    for(int i=0;i<E.rows();i++){
-//        Eigen::MatrixXi e=E.row(i);
-//        Eigen::MatrixXd q_tag=P[e.coeff(0,0)]+P[e.coeff(0,1)];
-//        Q_tag[i]=q_tag;
-//        q_tag(q_tag.rows()-1,0)=0;
-//        q_tag(q_tag.rows()-1,1)=0;
-//        q_tag(q_tag.rows()-1,2)=0;
-//        q_tag(q_tag.rows()-1,3)=1;
-//    }
-//
-//}
+//        double d_value=d(0,0);
+//        Eigen::DiagonalMatrix<double, 3> d_diagonal(d_value*d_value, d_value*d_value, d_value*d_value);
+//        Eigen::MatrixXd q=( (v.transpose()*(n*n.transpose())*v) + (2*(d*n).transpose()*v) + d_diagonal);
+
+        Eigen::MatrixXd n = N.row(i);
+        Eigen::MatrixXd n_trans = n.transpose();
+        Eigen::MatrixXd v = V.row(i);
+        Eigen::MatrixXd v_trans = v.transpose();
+        Eigen::MatrixXd d = -(n_trans * v);
+        double d_val = d(0,0);
+        Eigen::MatrixXd d_square = d * d;
+        double d_val_square = d_val*d_val;
+
+        Eigen::MatrixXd a = v_trans * (n * n_trans) * v;
+        Eigen::MatrixXd b = (2 * (d_val*n).transpose())*v;
+
+        Eigen::DiagonalMatrix<double, 3> c(d_val_square, d_val_square, d_val_square);
+        Eigen::MatrixXd q = static_cast<Eigen::MatrixXd>(a + b) + static_cast<Eigen::MatrixXd>(c);
+
+        Eigen::Matrix4d P4x4;
+        for(int i=0; i<3; i++) {
+            for(int j=0; j<3; j++) {
+                P4x4(i, j) = q(i, j);
+            }
+        }
+        P4x4(3,0) = 0;
+        P4x4(3,1) = 0;
+        P4x4(3,2) = 0;
+        P4x4(0, 3) = 0;
+        P4x4(1, 3) = 0;
+        P4x4(2, 3) = 0;
+        P4x4(3,3) = 1;
+
+        P[i]=P4x4;
+    }
+
+}
+
+void BasicScene::create_q_tag(){
+    Q_tag.resize(E.rows());
+    for(int i=0;i<E.rows();i++){
+        Eigen::MatrixXi e=E.row(i);
+        Eigen::MatrixXd q_tag=P[e.coeff(0,0)]+P[e.coeff(0,1)];
+        Q_tag[i]=q_tag;
+
+    }
+
+}
+
+void BasicScene::create_v_tag(){
+    for(int i = 0; i<E.rows(); i++) {
+
+        Eigen::FullPivLU<Eigen::MatrixXd> q_matrix(Q_tag[i]);
+        Eigen::Vector4d v_tag;
+        if(q_matrix.isInvertible()) {
+            Eigen::MatrixXd inv = q_matrix.inverse();
+            Eigen::MatrixXd ones = Eigen::Vector4d(0, 0, 0, 1);
+            Eigen::MatrixXd result = inv * ones;
+            v_tag = result;
+
+//            Eigen::MatrixXd vec = Eigen::Vector4d(0, 0, 0, 1);
+//            v_tag = q_matrix.inverse() * vec;
+        } else {
+            Eigen::MatrixXd midpoint = static_cast<Eigen::MatrixXd>(0.5 * (V.row(E.row(i)[0]) + V.row(E.row(i)[1])));
+            v_tag.x() = midpoint(0, 0);
+            v_tag.y() = midpoint(0, 1);
+            v_tag.z() = midpoint(0, 2);
+            v_tag.w() = 1;
+        }
+
+        V_tag[i] = v_tag;
+    }
+}
+
+void BasicScene::costs_positions_calculator(){
+    create_p();
+    create_q_tag();
+    create_v_tag();
+
+    our_cost_and_placement= [this] (const int e, const Eigen::MatrixXd & V, const Eigen::MatrixXi & F, const Eigen::MatrixXi & E, const Eigen::VectorXi &EMAP,
+                                      const Eigen::MatrixXi & EF, const Eigen::MatrixXi &EI, double & cost, Eigen::RowVectorXd & p) {
+        Eigen::MatrixXd q = Q_tag[e];
+        Eigen::MatrixXd v = V_tag[e];
+        p = Eigen::Vector3d(v(0,0), v(1,0), v(2,0));
+        cost = (v.transpose() * q * v)(0,0);
+
+    };
+}
+
+bool BasicScene::our_collapse_edge(){
+    if (!igl::collapse_edge(our_cost_and_placement, V, F, E, EMAP, EF, EI, Q, EQ, C)) {
+        return false;
+    }
+    auto curr = Q.top();
+    auto cost = std::get<0>(curr);
+    auto edge = std::get<1>(curr);
+    std::cout<< "Edge:" << edge << ", Cost:"<<cost<<", new V position:"<<V_tag[edge]<< std::endl;
+    return true;
+}
 
 void BasicScene::simplify() {
     //reset();
+    costs_positions_calculator();
     if(!Q.empty()) {
         bool something_collapsed = false;
         // collapse edge
         const int max_iter = std::ceil(0.01 * Q.size());
         for (int j = 0; j < max_iter; j++) {
-            if (!igl::collapse_edge(igl::shortest_edge_and_midpoint, V, F, E, EMAP, EF, EI, Q, EQ, C)) {
+            if (!our_collapse_edge()) {
                 break;
             }
             something_collapsed = true;
